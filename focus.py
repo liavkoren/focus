@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # ===============================================================================
 # Copyright (C) 2012 by Andrew Moffat
 #
@@ -51,29 +53,36 @@ __version__ = "0.1"
 __author__ = "Andrew Moffat <andrew.robert.moffat@gmail.com>"
 __project_url__ = "http://amoffat.github.com/focus"
 
-
-
 sys.path.append("/etc")
-
-try: import focus_blacklist as blacklist
-except ImportError: blacklist = None
-
 
 # this will be populated via load_config at runtime
 config = {}
 
-resolv_conf = "/etc/resolv.conf"
-config_file = "/etc/focus.json.conf"
-blacklist_file = "/etc/focus_blacklist.py"
-pid_file = "/var/run/focus.py.pid"
+resolv_conf = '/etc/resolv.conf'
+config_file = '/Users/liavkoren/.focus/focus.json.conf'
+blacklist_file = '/Users/liavkoren/.focus/focus_blacklist.py'
+pid_file = '/var/run/focus.py.pid'
 _default_config = {
-    "bind_ip": "127.0.0.1",
-    "fail_ip": "127.0.0.1",
-    "bind_port": 53,
-    "ttl": 1,
+    'bind_ip': '127.0.0.1',
+    'fail_ip': '127.0.0.1',
+    'bind_port': 53,
+    'ttl': 1,
 }
 
 _last_checked_blacklist = 0
+
+
+try:
+    import focus_blacklist as blacklist
+except ImportError:
+    try:
+        blacklist_path, _ = os.path.split(blacklist_file)
+        sys.path.append(blacklist_path)
+        import focus_blacklist as blacklist
+    except ImportError:
+        blacklist = None
+
+
 _default_blacklist = """
 import re
 
@@ -214,7 +223,6 @@ def can_visit(domain):
     return True
 
 
-
 def load_config(config_file):
     config = {}
 
@@ -244,7 +252,8 @@ def refresh_blacklist():
     # in that case, blacklist name will exist, but the file will not
     if not blacklist or not exists(blacklist_file):
         log.error("couldn't find %s, creating a default blacklist", blacklist_file)
-        with open(blacklist_file, "w") as h: h.write(_default_blacklist)
+        with open(blacklist_file, "w") as h:
+            h.write(_default_blacklist)
         import focus_blacklist as blacklist
 
     # has it changed?
