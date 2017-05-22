@@ -335,21 +335,24 @@ class ForwardedDNS(object):
 
         return reply
 
+
 def clean_up_pid():
     if exists(pid_file):
-        logging.info("cleaning up pid file")
+        logging.info('cleaning up pid file')
         # kludge, but we can't remove the pid file anymore, since we dropped privs
         h = open(pid_file, "w")
         h.close()
 
+
 def get_unprivileged_uid():
     if os.getuid() != os.geteuid():
         return os.getuid()
-    elif "SUDO_UID" in os.environ:
-        return int(os.environ.get("SUDO_UID"))
+    elif 'SUDO_UID' in os.environ:
+        return int(os.environ.get('SUDO_UID'))
     else:
         # Kludge, retains privileges
         return os.getuid()
+
 
 def drop_privileges(uid, gid):
     # Once everything is done, drop our privs
@@ -388,8 +391,7 @@ if __name__ == "__main__":
                 os.kill(int(pid), signal.SIGTERM)
                 exit(0)
         except IOError:
-            log.warning("Couldn't find pidfile or pid file was empty.  Please \
-manually find and kill any existing focus.py process")
+            log.warning("Couldn't find pidfile or pid file was empty.  Please manually find and kill any existing focus.py process")
             exit(1)
 
     with open(pid_file, "w") as f:
@@ -414,44 +416,46 @@ manually find and kill any existing focus.py process")
         drop_privileges(cli_options.uid, -1)
 
     refresh_blacklist()
-
-
     nameservers = load_nameservers(resolv_conf)
     if config["bind_ip"] not in nameservers:
-        raise Exception("%s not a nameserver in %s, please add it" %
-            (config["bind_ip"], resolv_conf))
+        raise Exception("%s not a nameserver in %s, please add it" % (config["bind_ip"], resolv_conf))
 
     # if we've given a nameserver on the commandline, that should be the
     # preferred nameserver
-    if cli_options.nameserver: nameservers.insert(0, cli_options.nameserver)
+    if cli_options.nameserver:
+        nameservers.insert(0, cli_options.nameserver)
 
     # if we don't remove the ip we've bound to from the list of fallback
     # nameservers, we run the risk of recursive dns lookups
-    nameservers.remove(config["bind_ip"])
+    nameservers.remove(config['bind_ip'])
 
     if not nameservers:
-        log.info("found no alternative nameservers")
+        log.info('found no alternative nameservers')
         if cli_options.wait:
-            log.info("waiting until a new nameserver is available in %s",
-                resolv_conf)
+            log.info(
+                'waiting until a new nameserver is available in %s',
+                resolv_conf
+            )
             while not nameservers:
                 nameservers = load_nameservers(resolv_conf)
-                try: nameservers.remove(config["bind_ip"])
-                except ValueError: pass
+                try:
+                    nameservers.remove(config['bind_ip'])
+                except ValueError:
+                    pass
                 time.sleep(5)
 
-            log.info("found an alternative nameserver")
+            log.info('found an alternative nameserver')
 
         else:
-            raise Exception("you need at least one other nameserver in %s" %
-                resolv_conf)
-
+            raise Exception(
+                'you need at least one other nameserver in %s' %
+                resolv_conf
+            )
 
     log.info("loaded %d alternative nameservers: %r", len(nameservers), nameservers)
 
     readers = [server]
     last_cleaned_readers = 0
-
 
     # start our main select loop
     while True:
@@ -466,11 +470,10 @@ manually find and kill any existing focus.py process")
                 question, sender = server.recvfrom(1024)
 
                 qid, domain, qtype = parse_dns(question)
-                qtype_readable = request_types_inv.get(qtype, "UNKNOWN")
-
+                qtype_readable = request_types_inv.get(qtype, 'UNKNOWN')
 
                 # a request for an ip for a domain
-                if qtype is request_types["A"]:
+                if qtype is request_types['A']:
                     # if we can visit it now, it might be either A) not on the blacklist
                     # or B) on the blacklist, but not blacklisted at this time (due to
                     # the schedule permitting access).  in both cases, we should
@@ -478,29 +481,28 @@ manually find and kill any existing focus.py process")
                     # possible
                     if can_visit(domain):
                         alt_ns = cli_options.nameserver or choice(nameservers)
-                        log.info("%s for %r (%s) is allowed, forwarding to %s",
-                            qtype_readable, domain, qid, alt_ns)
-                        fdns = ForwardedDNS(sender, alt_ns, question, config["ttl"])
+                        log.info(
+                            '%s for %r (%s) is allowed, forwarding to %s',
+                            qtype_readable, domain, qid, alt_ns
+                        )
+                        fdns = ForwardedDNS(sender, alt_ns, question, config['ttl'])
                         readers.append(fdns)
                         continue
 
                     # if we can't visit it now, direct it to the FAIL_IP
                     else:
-                        log.info("%s for %r (%s) is BLOCKED, pointing to %s", qtype_readable, domain, qid, config["fail_ip"])
+                        log.info('%s for %r (%s) is BLOCKED, pointing to %s', qtype_readable, domain, qid, config['fail_ip'])
                         reply = build_blacklist_response(qid, domain, config["fail_ip"], config["ttl"])
-
 
                 # all other types of requests..MX, CNAME, etc, just let the regular
                 # nameservers look those up, and don't adjust ttl
                 else:
-                    log.info("%s for %r (%s) is allowed", qtype_readable, domain, qid)
+                    log.info('%s for %r (%s) is allowed', qtype_readable, domain, qid)
                     fdns = ForwardedDNS(sender, nameservers[0], question)
                     readers.append(fdns)
                     continue
 
-
             server.sendto(reply, sender)
-
 
         # occasionally we'll have created a ForwardedDNS request that never
         # gets read from, for one reason or another.  maybe the packet got
