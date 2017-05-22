@@ -271,16 +271,12 @@ def load_nameservers(resolv_conf):
     return m or []
 
 
-
 def forward_dns_lookup(nameserver, packet):
     """ send a dns question packet to a nameserver, return the response """
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.sendto(packet, (nameserver, 53))
     reply, addr = sock.recvfrom(1024)
     return reply
-
-
-
 
 
 class ForwardedDNS(object):
@@ -402,7 +398,7 @@ if __name__ == "__main__":
 
     config.update(load_config(config_file))
     # Bind our socket before we do pretty much anything, this means we can drop
-    # privileges early, which is a necessaity before we start logging
+    # privileges early, which is a necessity before we start logging
     #
     # create our main server socket
     try:
@@ -485,9 +481,12 @@ if __name__ == "__main__":
                             '%s for %r (%s) is allowed, forwarding to %s',
                             qtype_readable, domain, qid, alt_ns
                         )
-                        fdns = ForwardedDNS(sender, alt_ns, question, config['ttl'])
-                        readers.append(fdns)
-                        continue
+                        try:
+                            fdns = ForwardedDNS(sender, alt_ns, question, config['ttl'])
+                            readers.append(fdns)
+                            continue
+                        except socket.error:
+                            continue
 
                     # if we can't visit it now, direct it to the FAIL_IP
                     else:
@@ -498,9 +497,12 @@ if __name__ == "__main__":
                 # nameservers look those up, and don't adjust ttl
                 else:
                     log.info('%s for %r (%s) is allowed', qtype_readable, domain, qid)
-                    fdns = ForwardedDNS(sender, nameservers[0], question)
-                    readers.append(fdns)
-                    continue
+                    try:
+                        fdns = ForwardedDNS(sender, nameservers[0], question)
+                        readers.append(fdns)
+                        continue
+                    except socket.error:
+                        continue
 
             server.sendto(reply, sender)
 
@@ -518,6 +520,5 @@ if __name__ == "__main__":
                     cleaned += 1
             log.info("cleaning out %d dead requests", cleaned)
             last_cleaned_readers = now
-
 
     server.close()
